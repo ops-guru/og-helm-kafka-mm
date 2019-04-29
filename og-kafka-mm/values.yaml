@@ -1,0 +1,84 @@
+# Default values for og-kafka-mm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+image: opsguruhub/og-kafka-mm
+imageTag: "1.0"
+
+## Specify a imagePullPolicy
+## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+imagePullPolicy: Always
+
+## Specify an array of imagePullSecrets.
+## Secrets must be manually created in the namespace.
+## ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+imagePullSecrets:
+
+servicePort: 8083
+
+## Kafka MirrorMaker JVM Heap Option
+heapOptions: "-Xms1024M -Xmx1024M"
+
+## Additional env variables
+customEnv: {}
+
+resources:
+  limits:
+   cpu: 1000m
+   memory: 4Gi
+  requests:
+   cpu: 1000m
+   memory: 4Gi
+
+## Custom pod annotations
+podAnnotations: {}
+
+## Node labels for pod assignment
+## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+nodeSelector: {}
+
+## Taints to tolerate on node assignment:
+## Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+tolerations: {}
+
+## Monitoring
+## Kafka MirrorMaker JMX Settings
+## ref: https://kafka.apache.org/documentation/#monitoring
+jmx:
+  port: 9998
+  enabled: true
+
+## Prometheus Exporter Configuration
+## ref: https://prometheus.io/docs/instrumenting/exporters/
+prometheus:
+  ## JMX Exporter Configuration
+  ## ref: https://github.com/prometheus/jmx_exporter
+  jmx:
+    image: solsson/kafka-prometheus-jmx-exporter@sha256
+    imageTag: 6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
+    port: 5556
+
+    ## Resources configuration for the JMX exporter container.
+    ## See the `resources` documentation above for details.
+    resources: {}
+
+## You can list load balanced service endpoint, or list of all brokers (which is hard in K8s).  e.g.:
+## bootstrapServers: "PLAINTEXT://prod-kafka-0:9092"
+kafka:
+  topicWhitelist: ".*"
+  numStreams: "1"
+  producerConfig:
+    bootstrap.servers: "dev1-kafka-0:9092"
+    max.in.flight.requests.per.connection: '1'
+    linger.ms: '5000'
+    batch.size: '400000'
+    buffer.memory: '536870912'
+    max.request.size: '1000000'
+    acks: 1
+  consumerConfig:
+    bootstrap.servers: "dev2-kafka-0:9092"
+    receive.buffer.bytes: '1048576'
+    fetch.min.bytes: '500000'
+    fetch.max.wait.ms: '150'
+

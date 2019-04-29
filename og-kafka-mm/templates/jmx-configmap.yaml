@@ -1,0 +1,68 @@
+{{- if and .Values.jmx.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "og-kafka-mm.fullname" . }}-jmx-configmap
+  labels:
+    app: {{ template "og-kafka-mm.name" . }}
+    chart: {{ template "og-kafka-mm.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  jmx-kafka-mm-prometheus.yml: |+
+    jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:{{ .Values.jmx.port }}/jmxrmi
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    ssl: false
+    rules:
+    - pattern: 'kafka.producer<type=(.+), client-id=(([^,]+), topic=([^,]+))><>(.*): .*'
+      name: kafka_producer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "consumer_id": "$3"
+        "topic": "$4"
+        "type": "$5"
+    - pattern: 'kafka.producer<type=(.+), client-id=(([^,]+), node=([^,]+))><>(.*): .*'
+      name: kafka_producer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "consumer_id": "$3"
+        "node": "$4"
+        "type": "$5"
+    - pattern: 'kafka.producer<type=(.+), client-id=(.+)><>(.*): .*'
+      name: kafka_producer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "type": "$3"
+    - pattern: 'kafka.consumer<type=(.+), client-id=(([^,]+), topic=([^,]+), partition=([0-9]+))><>(.*): .*'
+      name: kafka_consumer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "consumer_id": "$3"
+        "topic": "$4"
+        "partition": "$5"
+        "type": "$6"
+    - pattern: 'kafka.consumer<type=(.+), client-id=(([^,]+), topic=([^,]+))><>(.*): .*'
+      name: kafka_consumer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "consumer_id": "$3"
+        "topic": "$4"
+        "type": "$5"
+    - pattern: 'kafka.consumer<type=(.+), client-id=.+-mm-([0-9]+)><>(.*): .*'
+      name: kafka_consumer_mirror_maker
+      labels:
+        "client_id": "$2"
+        "type": "$3"
+    - pattern: 'kafka.tools<type=MirrorMaker, name=MirrorMaker-numDroppedMessages><>.*'
+      name: kafka_mirror_maker_dropped_messages
+    - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>CollectionCount'
+    - pattern: 'java.lang<type=GarbageCollector, name=(.+)><>CollectionTime'
+    - pattern: 'java.lang<type=Memory><HeapMemoryUsage>(.+): .*'
+    - pattern: 'java.lang<type=Memory><NonHeapMemoryUsage>(.+): .*'
+    - pattern: 'java.lang<type=OperatingSystem><.*>OpenFileDescriptorCount: .*'
+    - pattern: 'java.lang<type=OperatingSystem><.*>ProcessCpuLoad: .*'
+    - pattern: 'java.lang<type=Threading><(.*)>ThreadCount: .*'
+    - pattern: 'java.lang<type=Runtime><(.*)>Uptime: .*'
+
+{{- end }}

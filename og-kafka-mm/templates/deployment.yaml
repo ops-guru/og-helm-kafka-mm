@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "og-kafka-mm.fullname" . }}
+  labels:
+    app: {{ template "og-kafka-mm.name" . }}
+    chart: {{ template "og-kafka-mm.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "og-kafka-mm.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "og-kafka-mm.name" . }}
+        release: {{ .Release.Name }}
+      {{- if or .Values.podAnnotations .Values.jmx.enabled }}
+      annotations:
+      {{- range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+      {{- end }}
+      {{- if .Values.jmx.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.prometheus.jmx.port | quote }}
+      {{- end }}
+      {{- end }}
+    spec:
+      containers:
+        {{- if .Values.jmx.enabled }}
+        - name: prometheus-jmx-exporter
+          image: "{{ .Values.prometheus.jmx.image }}:{{ .Values.prometheus.jmx.imageTag }}"
+          command:
+          - java
+          - -XX:+UnlockExperimentalVMOptions
+          - -XX:+UseCGroupMemoryLimitForHeap
+          - -XX:MaxRAMFraction=1
+          - -XshowSettings:vm
+          - -jar
+          - jmx_prometheus_httpserver.jar
+          - {{ .Values.prometheus.jmx.port | quote }}
+          - /etc/jmx-kafka-mm/jmx-kafka-mm-prometheus.yml
+          ports:
+          - containerPort: {{ .Values.prometheus.jmx.port }}
+          resources:
+{{ toYaml .Values.prometheus.jmx.resources | indent 12 }}
+          volumeMounts:
+          - name: jmx-config
+            mountPath: /etc/jmx-kafka-mm
+        {{- end }}
+        - name: {{ template "og-kafka-mm.name" . }}-server
+          image: "{{ .Values.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+          ports:
+            - name: kafka-mm
+              containerPort: {{ .Values.servicePort }}
+              protocol: TCP
+            {{- if .Values.jmx.enabled }}
+            - containerPort: {{ .Values.jmx.port }}
+              name: jmx
+            {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+          - name: mm-config
+            mountPath: /etc/mirror-maker
+          env:
+            - name: KAFKA_HEAP_OPTS
+              value: "{{ .Values.heapOptions }}"
+            - name: KAFKA_MM_NUMSTREAMS
+              value: "{{ .Values.kafka.numStreams }}"
+            - name: KAFKA_MM_WHITELIST
+              value: "{{ .Values.kafka.topicWhitelist }}"
+            {{- if .Values.jmx.port }}
+            - name: JMX_PORT
+              value: "{{ .Values.jmx.port }}"
+            {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
+      volumes:
+      {{- if .Values.jmx.enabled }}
+      - name: jmx-config
+        configMap:
+          name: {{ template "og-kafka-mm.fullname" . }}-jmx-configmap
+      {{- end }}
+      - name: mm-config
+        configMap:
+          name: {{ template "og-kafka-mm.fullname" . }}-configmap
+      {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations:
+{{ toYaml .Values.tolerations | indent 8 }}
+      {{- end }}

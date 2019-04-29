@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "og-kafka-mm.fullname" . }}-configmap
+  labels:
+    app: {{ template "og-kafka-mm.name" . }}
+    chart: {{ template "og-kafka-mm.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  consumer.properties: |+
+    {{- range $key, $value := .Values.kafka.consumerConfig }}
+    {{ $key }}={{ $value }}
+    {{- end }}
+    group.id={{ include "og-kafka-mm.groupId" . }}
+  producer.properties: |+
+    {{- range $key, $value := .Values.kafka.producerConfig }}
+    {{ $key }}={{ $value }}
+    {{- end }}
